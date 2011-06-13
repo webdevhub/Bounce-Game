@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>HTML5 Bounce Game</title>
+
+<link rel="stylesheet" href="main.css" />
+
+<script type="text/javascript">
+	//global variables
+	var context;
+	var width = 300;
+	var height = 510;
+	var barSizeWidth = 50;
+	var barSizeHeight = 10;
+	var bars = new Array();
+	var step = 40;
+	var collidedBar = null;
+
+	var normalSpeed = 2;
+
+	var ball = {"x":width/2,"y":height-barSizeHeight,"dx":0,"dy":normalSpeed,"acc":0,"radius":10}
+
+	var ballMove = false;
+	var scoreDiv;
+	var score = 0;
+	var colors = new Array();
+
+	var gravity = 0.5;
+	var jumpVel = 9;
+	var horizontalVel = 2;
+
+	var stop = true;
+
+	var frameSpeed = 25;
+
+	var gamePause = false;
+	var isGameOver = false;
+
+/*******************Initialization Functions*****************************************/
+
+	//this function is called first when whole page gets loaded
+	function init() {
+		context = document.getElementById("canvas").getContext("2d");
+		drawRect();
+
+		//add the colors into a global array, so that bars can be colored
+		colors.push("#000000");
+		colors.push("#BA1E45");
+		colors.push("#DE2FC4");
+		colors.push("#6A1FED");
+		colors.push("#0ABF2E");
+		colors.push("#ABB31B");
+		colors.push("#C95B12");
+
+		//initializes the first set of bars
+		initBars();
+	      
+		initBall();
+	      
+		//assigns a function to be called repeatedly
+		//setTimeout(gameProcess,1000/frameSpeed);
+		timerFunction();
+		
+		scoreDiv = document.getElementById("score");
+
+		//bind keyUp and keyDown events
+		window.onkeydown = keydown;
+	}
+
+	//initializes the ball
+	function initBall() {
+		//this in effect puts the ball on the fifth bar
+		var mid_indx = Math.floor(bars.length/2);
+		ball.x = bars[mid_indx].x+barSizeWidth/2;
+		ball.y = bars[mid_indx].y-ball.radius;
+		collidedBar = bars[mid_indx];
+	}
+
+	//initializes the bars for the first time
+	function initBars() {
+		var y_bar = height-barSizeHeight;
+		var noOfBars = y_bar/step;
+		for(var v=0;v<noOfBars;v++) {
+			//randomly assign x coordinate of bar
+			var j = (width-barSizeWidth)*Math.random();
+			//randomly assign color of bar
+			bars.push({"x":Math.floor(j),"y":y_bar,"color":colors[Math.floor(6*Math.random())]});
+			//y coordinate for next bar
+			y_bar-=step;
+		}
+	}
+
+/*******************Event Functions*****************************************/
+
+	//called whenever a key is pressed
+	function keydown(e) {
+		//space bar key
+		if(e.keyCode==32) {
+			if(stop) {
+				//the space bar key responds only when the ball is on a bar
+				if(ball.x>collidedBar.x-ball.radius&&ball.x<collidedBar.x+barSizeWidth+ball.radius)
+				{
+					//gives the upward velocity
+					ball.dy = -jumpVel;
+					//gives downward acceleration
+					ball.acc = gravity;
+					stop = false;
+				}
+			}
+		}
+		//left arrow key
+		else if(e.keyCode==37) {
+			if(ball.x-ball.radius!=0) ball.dx = -horizontalVel;
+		}
+		//right arrow key
+		else if(e.keyCode==39) {
+			if(ball.x+ball.radius-width!=0) ball.dx = horizontalVel;
+		}
+		// 'P' key on the keyboard
+		else if(e.keyCode==80) {
+			gamePause = !gamePause;
+			timerFunction();
+		}
+
+	}
+
+/*******************Process Functions*****************************************/
+
+	//this function is called repeatedly and handles the whole game
+	function gameProcess() {
+		//clears the canvas
+		clear();
+
+		//draws boundary rectangle
+		drawRect();
+		
+		//increments the pixels coordinates of bars
+		moveBars();
+
+		//checks if ball is to be moved or not
+		ball = moveBall(ball);
+
+		var res = checkBarCollision();
+
+		//checks whether the ball has collided with a bar or not
+		if(res.bool) {
+			//if the ball has collided with the bar then the ball velocity matches the bar velocity and acceleration
+			ball.dy = normalSpeed;
+			ball.acc = 0;
+			collidedBar = res.bar;
+			stop = true;
+		}
+
+		
+
+		//draws the ball at new location
+		drawBall(ball.x,ball.y,ball.radius);
+
+		//draws bars at the new location
+		drawBars();
+		
+		//checks for the collision between bars and ball
+		if(checkFloorCollision()) {
+			ball.dy = 0;
+			ball.dx = 0;
+			ball.acc = 0;
+			stop = true;
+		}
+
+		makeDifficult();
+		
+		//if the game is not paused and it not over, then only the game is continued further
+		if(!gamePause&&!isGameOver)
+			timerFunction();
+	}
+
+	function timerFunction() {
+		setTimeout(gameProcess,1000/frameSpeed);
+	}
+
+	//this function increases the difficulty of the game based on the score till now
+	function makeDifficult() {
+		if(score>500&&score<1000) {
+			frameSpeed = 30;
+		}
+		else if(score>1000&&score<1500) {
+			frameSpeed = 35;
+		}
+		else if(score>1500&&score<2000) {
+			frameSpeed = 40;
+		}
+		else if(score>2000&&score<3000) {
+			frameSpeed = 45;
+		}
+		else if(score>3000&&score<4000) {
+			frameSpeed = 50;
+		}
+		else if(score>4000&&score<5000) {
+			frameSpeed = 60;
+		}
+	}
+
+	//this function is called when the ball touches the ground
+	function gameOver() {
+		isGameOver = true;
+		document.getElementById("status").innerHTML = "Game Over. Press F5 to restart.";
+	}
+
+/*******************Collision Detection Functions*****************************************/
+
+	function checkBarCollision() {
+		//coords of bottom point
+		var response = {"bar":null,"bool":false};
+		var temp_y = ball.y+ball.radius;
+
+		for(var i = 0; i<bars.length;i++) {
+			var mod = Math.floor(bars[i].y-temp_y);
+			
+			var b = mod>-5 && mod<5;
+			var b1 = mod>-barSizeHeight && mod<barSizeHeight;
+
+			//going down
+			if(b1&&(ball.x>=bars[i].x&&ball.x<=bars[i].x+barSizeWidth)&&ball.dy>0) {
+				ball.y = bars[i].y-ball.radius;
+				response.bool  = true;
+				response.bar  = bars[i];
+			}
+
+			//going up
+			if(b&&(ball.x>=bars[i].x&&ball.x<=bars[i].x+barSizeWidth)&&ball.dy<=0) {
+				ball.y = bars[i].y-ball.radius;
+				response.bool  = true;
+				response.bar  = bars[i];
+			}
+		}
+		return response;
+	}
+	
+	function checkFloorCollision() {
+		//checks for the collision between ball and bar
+		if(height-(ball.y+ball.radius)<01) {
+			ball.dy = 0;ball.dx=0;ball.acc=0;
+			gameOver();
+		}
+		var right_wall = ball.x+ball.radius-width;
+		var left_wall = ball.x-ball.radius;
+
+		var bol1 = right_wall<3&&right_wall>-3;
+		var bol2 = left_wall<3&&left_wall>-3;
+
+		if(bol1||bol2) {
+			ball.dx = 0;
+		}
+		if(ball.x>collidedBar.x||ball.x<collidedBar.x+barSizeWidth) {
+			ball.acc = gravity;
+		}
+		return false;
+	}
+
+/*******************Movement Functions*****************************************/
+
+	function moveBall(inpBall) {
+		//checks if the ball is at right or left end. If not then increments the ball coordinates
+		inpBall.x += Math.floor(inpBall.dx);
+		inpBall.dy += inpBall.acc;
+		inpBall.y += Math.floor(inpBall.dy + inpBall.acc/2);
+		return inpBall;
+	}
+
+	function moveBars() {
+		//checks if the bar is about to move out from the canvas
+		if(bars.length>0&&bars[0].y==height-normalSpeed) {
+			//removes the bottom-most bar
+			bars.shift();
+
+			//increments the score by 20 for every removed bar
+			score+=20;
+			scoreDiv.innerHTML = "Score : "+score;
+
+			//adds a new bar for every bar pushed out
+			var j = (width-barSizeWidth)*Math.random();
+			bars.push({"x":j,"y":-barSizeHeight,"color":colors[Math.floor(6*Math.random())]});
+		}
+
+		//increments the y-coordinate of all the bars
+		for(var i=0;i<bars.length;i++) {
+			bars[i].y += normalSpeed;
+		}
+	}
+
+/*******************Drawing Functions*****************************************/
+	//draws all the bars, by taking their references from a global array
+	function drawBars() {
+		for(var i=0;i<bars.length;i++) {
+			drawBar(bars[i].x,bars[i].y,bars[i].color);
+		}
+	}
+
+	//draws black ball at specified location
+	function drawBall(x,y,r) {
+		context.fillStyle = "#000000";
+		context.beginPath();
+		context.arc(x,y,r,0,2*Math.PI,true);
+		context.closePath();
+		context.fill();
+	}
+	
+	//draws rectangle at the canvas boundary
+	function drawRect() {
+		context.beginPath();
+		context.strokeRect(0,0,width,height);
+		context.closePath();
+		context.fill();
+	}
+
+	//draws a bar at specified location, and of specified color
+	function drawBar(x,y,color) {
+		context.fillStyle = color;
+		context.beginPath();
+		context.fillRect(x,y,barSizeWidth,barSizeHeight);
+		context.closePath();
+		context.fill();
+	}
+
+	//clears the whole canvas
+	function clear() {
+		context.clearRect(0,0,width,height);
+	}
+
+	//calls init function whenever the page gets fully loaded
+	window.addEventListener("load",init,true);
+</script>
+</head>
+<body>
+<div id="wrapper">
+	<div id="score">Score : 0</div>
+	<canvas width="300" height="510" id="canvas"></canvas>
+	<div id="status"></div>
+	<p>Keep the ball afloat in air</p>
+	<p>Use left and right arrow key to move, space bar to jump, P button to pause</p>
+</div>
+</body>
+</html>
