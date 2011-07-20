@@ -28,6 +28,7 @@
 	var gravity = 0.5;
 	var jumpVel = 9;
 	var horizontalVel = 2;
+	var maxHorizontalVel = 5;
 
 	var stop = true;
 
@@ -109,15 +110,31 @@
 			}
 		}
 		//left arrow key
-		else if(e.keyCode==37) {
-			if(ball.x-ball.radius!=0) ball.dx = -horizontalVel;
+		if(e.keyCode==37) {
+			if(ball.x-ball.radius > 0) {
+			    if (ball.dx > 0){
+			        ball.dx = 0;
+			    }
+			    ball.dx -= horizontalVel;
+			    }
+			    if (ball.dx < -maxHorizontalVel){
+    			    ball.dx = -maxHorizontalVel;
+    			}
 		}
 		//right arrow key
-		else if(e.keyCode==39) {
-			if(ball.x+ball.radius-width!=0) ball.dx = horizontalVel;
+		if(e.keyCode==39) {
+			if(ball.x+ball.radius-width < 0) {
+			    if (ball.dx < 0){
+			        ball.dx = 0;
+			    }
+			    ball.dx += horizontalVel;
+			    }
+			if (ball.dx > maxHorizontalVel){
+			    ball.dx = maxHorizontalVel;
+			}
 		}
 		// 'P' key on the keyboard
-		else if(e.keyCode==80) {
+		if(e.keyCode==80) {
 			gamePause = !gamePause;
 			timerFunction();
 		}
@@ -216,22 +233,21 @@
 		for(var i = 0; i<bars.length;i++) {
 			var mod = Math.floor(bars[i].y-temp_y);
 			
-			var b = mod>-5 && mod<5;
-			var b1 = mod>-barSizeHeight && mod<barSizeHeight;
+			var b1 = mod>-ball.dy && mod<ball.dy;
 
 			//going down
-			if(b1&&(ball.x>=bars[i].x&&ball.x<=bars[i].x+barSizeWidth)&&ball.dy>0) {
+			if(b1 && (ball.x>=bars[i].x&&ball.x<=bars[i].x+barSizeWidth)&&ball.dy>0) {
 				ball.y = bars[i].y-ball.radius;
 				response.bool  = true;
 				response.bar  = bars[i];
 			}
 
 			//going up
-			if(b&&(ball.x>=bars[i].x&&ball.x<=bars[i].x+barSizeWidth)&&ball.dy<=0) {
-				ball.y = bars[i].y-ball.radius;
-				response.bool  = true;
-				response.bar  = bars[i];
-			}
+			//if(b&&(ball.x>=bars[i].x&&ball.x<=bars[i].x+barSizeWidth)&&ball.dy<=0) {
+			//	ball.y = bars[i].y-ball.radius;
+			//	response.bool  = true;
+			//	response.bar  = bars[i];
+			//}
 		}
 		return response;
 	}
@@ -245,11 +261,11 @@
 		var right_wall = ball.x+ball.radius-width;
 		var left_wall = ball.x-ball.radius;
 
-		var bol1 = right_wall<3&&right_wall>-3;
-		var bol2 = left_wall<3&&left_wall>-3;
+		var bol1 = right_wall>-3;
+		var bol2 = left_wall<3;
 
 		if(bol1||bol2) {
-			ball.dx = 0;
+			ball.dx *= - 1;
 		}
 		if(ball.x>collidedBar.x||ball.x<collidedBar.x+barSizeWidth) {
 			ball.acc = gravity;
